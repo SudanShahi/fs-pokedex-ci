@@ -1,4 +1,5 @@
 name: Deployment pipeline
+
 on:
   push:
     branches:
@@ -6,7 +7,6 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize]
-
 
 jobs:
   simple_deployment_pipeline:
@@ -32,8 +32,41 @@ jobs:
       - name: Build
         run: npm run build
 
+  deploy:
+    needs: simple_deployment_pipeline
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '#skip')
+    runs-on: ubuntu-latest
+
+    steps:
       - name: Trigger Render deployment
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '#skip')
         run: curl -X POST "$RENDER_DEPLOY_HOOK_URL"
         env:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+
+  discord_success:
+    needs: deploy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '#skip')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send success notification
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          status: success
+          title: "Deployment successful"
+          description: "A new version was deployed to production: https://fs-pokedex-ci.onrender.com"
+
+  discord_failure:
+    needs: simple_deployment_pipeline
+    if: failure()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send failure notification
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          status: failure
+          title: "Build failed"
+          description: "Commit: ${{ github.sha }} | Actor: ${{ github.actor }} | Workflow: ${{ github.workflow }}"
