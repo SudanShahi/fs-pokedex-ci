@@ -36,9 +36,9 @@ jobs:
         env:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
 
-  # Create version tag
+  # Create version tag 
   tag_release:
-    needs: simple_deployment_pipeline
+    needs: simple_deployment_pipeline  # ← FIXED: Added this line
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
@@ -46,6 +46,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Bump version & push tag
+        id: tag  # ← FIXED: Added ID to reference in Discord
         uses: anothrNick/github-tag-action@1.71.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -65,7 +66,7 @@ jobs:
           args: |
             🚀 **Deployment successful!**
             New version deployed: https://fs-pokedex-ci.onrender.com
-            Tag: ${{ steps.tag.outputs.new_tag }}
+            Tag: ${{ needs.tag_release.outputs.new_tag || 'unknown' }}
             By: ${{ github.actor }}
 
   # Discord failure notification  
