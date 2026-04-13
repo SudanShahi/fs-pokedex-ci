@@ -43,3 +43,4 @@ The main branch should always stay green:
 - tests pass
 - eslint passes
 - deployment runs only when allowed by the workflow conditions
+- branch protection test
