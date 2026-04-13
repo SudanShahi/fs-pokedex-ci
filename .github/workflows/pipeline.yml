@@ -7,7 +7,6 @@ on:
     types: [opened, synchronize]
 
 jobs:
-  # Main pipeline job (lint, test, build)
   simple_deployment_pipeline:
     runs-on: ubuntu-latest
     steps:
@@ -25,7 +24,6 @@ jobs:
       - name: Build
         run: npm run build
 
-  # Deploy to Render
   deploy:
     needs: simple_deployment_pipeline
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -36,33 +34,8 @@ jobs:
         env:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
 
-  # Create version tag (WORKS WITHOUT package.json)
-  tag_release:
-    needs: simple_deployment_pipeline
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    outputs:
-      new_tag: ${{ steps.tag.outputs.new_tag }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Create & push tag
-        id: tag
-        run: |
-          # Create simple version tag from date + commit
-          TAG="v$(date +%Y.%m.%d)-$(echo ${{ github.sha }} | cut -c1-7)"
-          git tag "$TAG"
-          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git --tags --force
-          echo "new_tag=$TAG" >> $GITHUB_OUTPUT
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # Discord success notification
   discord_success:
-    needs: [deploy, tag_release]
+    needs: [deploy]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
@@ -72,13 +45,11 @@ jobs:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         with:
           args: |
-            🚀 **Deployment successful!**
-            New version deployed: https://fs-pokedex-ci.onrender.com
-            Tag: ${{ needs.tag_release.outputs.new_tag }}
+            🚀 Deployment successful!
+            App: https://fs-pokedex-ci.onrender.com
             Commit: ${{ github.sha }}
             By: ${{ github.actor }}
 
-  # Discord failure notification  
   discord_failure:
     needs: simple_deployment_pipeline
     if: failure()
@@ -90,6 +61,6 @@ jobs:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         with:
           args: |
-            ❌ **Build FAILED!**
+            ❌ Build failed!
             Commit: ${{ github.sha }}
             By: ${{ github.actor }}
