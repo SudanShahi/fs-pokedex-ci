@@ -6,6 +6,10 @@ app.get('/version', (req, res) => {
   res.send('1')
 })
 
+app.get('/health', (req, res) => {
+  res.send('ok')
+})
+
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, 'build')))
 
