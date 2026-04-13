@@ -36,21 +36,29 @@ jobs:
         env:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
 
-  # Create version tag 
+  # Create version tag (WORKS WITHOUT package.json)
   tag_release:
-    needs: simple_deployment_pipeline  # ← FIXED: Added this line
+    needs: simple_deployment_pipeline
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    outputs:
+      new_tag: ${{ steps.tag.outputs.new_tag }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Bump version & push tag
-        id: tag  # ← FIXED: Added ID to reference in Discord
-        uses: anothrNick/github-tag-action@1.71.0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create & push tag
+        id: tag
+        run: |
+          # Create simple version tag from date + commit
+          TAG="v$(date +%Y.%m.%d)-$(echo ${{ github.sha }} | cut -c1-7)"
+          git tag "$TAG"
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git --tags --force
+          echo "new_tag=$TAG" >> $GITHUB_OUTPUT
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DEFAULT_BUMP: patch
 
   # Discord success notification
   discord_success:
@@ -66,7 +74,8 @@ jobs:
           args: |
             🚀 **Deployment successful!**
             New version deployed: https://fs-pokedex-ci.onrender.com
-            Tag: ${{ needs.tag_release.outputs.new_tag || 'unknown' }}
+            Tag: ${{ needs.tag_release.outputs.new_tag }}
+            Commit: ${{ github.sha }}
             By: ${{ github.actor }}
 
   # Discord failure notification  
