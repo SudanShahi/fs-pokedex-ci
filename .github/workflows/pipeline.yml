@@ -1,72 +1,85 @@
 name: Deployment pipeline
-
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
-    branches: [main]
+    branches: [ main ]
     types: [opened, synchronize]
 
 jobs:
+  # Main pipeline job (lint, test, build)
   simple_deployment_pipeline:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-
       - name: Install dependencies
         run: npm install
-
       - name: Check style
         run: npm run eslint
-
       - name: Run tests
         run: npm test
-
       - name: Build
         run: npm run build
 
+  # Deploy to Render
   deploy:
     needs: simple_deployment_pipeline
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '#skip')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-
     steps:
       - name: Trigger Render deployment
         run: curl -X POST "$RENDER_DEPLOY_HOOK_URL"
         env:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
 
-  discord_success:
-    needs: deploy
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '#skip')
+  # Create version tag
+  tag_release:
+    needs: simple_deployment_pipeline
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-
     steps:
-      - name: Send success notification
-        uses: sarisia/actions-status-discord@v1
+      - uses: actions/checkout@v4
         with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK }}
-          status: success
-          title: "Deployment successful"
-          description: "A new version was deployed to production: https://fs-pokedex-ci.onrender.com"
+          fetch-depth: 0
+      - name: Bump version & push tag
+        uses: anothrNick/github-tag-action@1.71.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEFAULT_BUMP: patch
 
+  # Discord success notification
+  discord_success:
+    needs: [deploy, tag_release]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Discord Success
+        uses: Ilshidur/action-discord@master
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        with:
+          args: |
+            🚀 **Deployment successful!**
+            New version deployed: https://fs-pokedex-ci.onrender.com
+            Tag: ${{ steps.tag.outputs.new_tag }}
+            By: ${{ github.actor }}
+
+  # Discord failure notification  
   discord_failure:
     needs: simple_deployment_pipeline
     if: failure()
     runs-on: ubuntu-latest
-
     steps:
-      - name: Send failure notification
-        uses: sarisia/actions-status-discord@v1
+      - name: Discord Failure
+        uses: Ilshidur/action-discord@master
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK }}
-          status: failure
-          title: "Build failed"
-          description: "Commit: ${{ github.sha }} | Actor: ${{ github.actor }} | Workflow: ${{ github.workflow }}"
+          args: |
+            ❌ **Build FAILED!**
+            Commit: ${{ github.sha }}
+            By: ${{ github.actor }}
