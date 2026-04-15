@@ -17,28 +17,37 @@ Start by running `npm install` inside the project folder.
 ## Application
 
 Deployed application:  
-https://fs-pokedex-ci.onrender.com/
+[https://fs-pokedex-ci.onrender.com/](https://fs-pokedex-ci.onrender.com/)
 
 ## Endpoints
 
 Health check:  
-https://fs-pokedex-ci.onrender.com/health
+[https://fs-pokedex-ci.onrender.com/health](https://fs-pokedex-ci.onrender.com/health)
 
 Version endpoint:  
-https://fs-pokedex-ci.onrender.com/version
+[https://fs-pokedex-ci.onrender.com/version](https://fs-pokedex-ci.onrender.com/version)
 
 ## Keeping green
 
-This repository includes the improvements from Full Stack Open Part 11, exercises 11.13–11.16:
+This repository includes the improvements from Full Stack Open Part 11:
 
 - Pull request workflow for changes targeting `main`
 - Automatic deployment to Render when changes are merged to `main`
 - Version tagging for releases
-- Skipping deployment and tagging when the commit message contains `#skip`
+- Discord notifications for successful deployments and failures
+- Periodic health check workflow
+- Skip logic when the commit message contains `#skip`
+
+## Part 11 links
+
+- Deployed pokedex: https://fs-pokedex-ci.onrender.com/
+- Exercise 21 repository: https://github.com/SudanShahi/chess-ci
+- Original chess group repository: https://github.com/rajeshdangal/Chess_game-
 
 ## Notes
 
 The main branch should always stay green:
+
 - the project builds successfully
 - tests pass
 - eslint passes
